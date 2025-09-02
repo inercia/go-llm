@@ -1,0 +1,10 @@
+This is the first JSON fixture:
+
+```
+{
+    "name": "John",
+    "age": 40
+}
+```
+
+with some more text.
