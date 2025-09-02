@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+    
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-1.24-
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: make deps
+    
+    - name: Run all checks
+      run: make pre-commit
+    
+    - name: Build
+      run: make build
+    
+    - name: Generate changelog
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        
+        # Generate basic changelog since last tag
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## Changes since $PREVIOUS_TAG" > CHANGELOG.md
+          git log --oneline "$PREVIOUS_TAG"..HEAD >> CHANGELOG.md
+        else
+          echo "## Initial Release" > CHANGELOG.md
+          git log --oneline >> CHANGELOG.md
+        fi
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        name: Release ${{ env.VERSION }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: false
