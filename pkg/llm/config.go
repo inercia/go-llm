@@ -9,9 +9,12 @@ import (
 )
 
 const (
-	DefaultOpenAIModel = "gpt-4o-mini"
-	DefaultGeminiModel = "gemini-1.5-flash"
-	DefaultOllamaModel = "gpt-oss:20b"
+	DefaultOpenAIModel     = "gpt-4o-mini"
+	DefaultGeminiModel     = "gemini-1.5-flash"
+	DefaultDeepSeekModel   = "deepseek-chat"
+	DefaultOpenRouterModel = "meta-llama/llama-3.1-8b-instruct:free"
+	DefaultBedrockModel    = "anthropic.claude-3-haiku-20240307-v1:0"
+	DefaultOllamaModel     = "gpt-oss:20b"
 )
 
 const DefaultOllamaBaseURL = "http://localhost:11434"
@@ -123,12 +126,93 @@ func GetLLMFromEnv() ClientConfig {
 		}
 	}
 
+	// Priority 4: DeepSeek API
+	if apiKey := os.Getenv("DEEPSEEK_API_KEY"); apiKey != "" {
+		fmt.Println("🔑 Using DeepSeek API")
+		model := DefaultDeepSeekModel
+
+		// Allow model override via environment variable
+		if customModel := os.Getenv("DEEPSEEK_MODEL"); customModel != "" {
+			model = customModel
+		}
+
+		return ClientConfig{
+			Provider: "deepseek",
+			Model:    model,
+			APIKey:   apiKey,
+			Timeout:  parseTimeoutFromEnv("DEEPSEEK_TIMEOUT", 30*time.Second),
+		}
+	}
+
+	// Priority 5: OpenRouter API
+	if apiKey := os.Getenv("OPENROUTER_API_KEY"); apiKey != "" {
+		fmt.Println("🔑 Using OpenRouter API")
+		model := DefaultOpenRouterModel
+
+		// Allow model override via environment variable
+		if customModel := os.Getenv("OPENROUTER_MODEL"); customModel != "" {
+			model = customModel
+		}
+
+		return ClientConfig{
+			Provider: "openrouter",
+			Model:    model,
+			APIKey:   apiKey,
+			Timeout:  parseTimeoutFromEnv("OPENROUTER_TIMEOUT", 30*time.Second),
+		}
+	}
+
+	// Priority 6: AWS Bedrock (uses AWS credential chain)
+	if os.Getenv("AWS_ACCESS_KEY_ID") != "" || os.Getenv("AWS_PROFILE") != "" || os.Getenv("AWS_BEDROCK_MODEL") != "" {
+		fmt.Println("🔑 Using AWS Bedrock")
+		model := DefaultBedrockModel
+
+		// Allow model override via environment variable
+		if customModel := os.Getenv("AWS_BEDROCK_MODEL"); customModel != "" {
+			model = customModel
+		} else if customModel := os.Getenv("BEDROCK_MODEL"); customModel != "" {
+			model = customModel
+		}
+
+		// Get AWS region from environment or use default
+		region := os.Getenv("AWS_REGION")
+		if region == "" {
+			region = "us-east-1"
+		}
+
+		config := ClientConfig{
+			Provider: "bedrock",
+			Model:    model,
+			Timeout:  parseTimeoutFromEnv("AWS_BEDROCK_TIMEOUT", 60*time.Second),
+		}
+
+		// Set region and endpoints in Extra field
+		if config.Extra == nil {
+			config.Extra = make(map[string]string)
+		}
+		config.Extra["region"] = region
+
+		// Add custom endpoints if specified
+		if bedrockEndpoint := os.Getenv("AWS_BEDROCK_ENDPOINT"); bedrockEndpoint != "" {
+			config.Extra["bedrock_endpoint"] = bedrockEndpoint
+		}
+		if bedrockRuntimeEndpoint := os.Getenv("AWS_BEDROCK_RUNTIME_ENDPOINT"); bedrockRuntimeEndpoint != "" {
+			config.Extra["bedrock_runtime_endpoint"] = bedrockRuntimeEndpoint
+		}
+		// Support generic BEDROCK_ENDPOINT for runtime endpoint (most common use case)
+		if bedrockEndpoint := os.Getenv("BEDROCK_ENDPOINT"); bedrockEndpoint != "" {
+			config.Extra["base_url"] = bedrockEndpoint
+		}
+
+		return config
+	}
+
 	model := DefaultOllamaModel
 	baseURL := DefaultOllamaBaseURL
 
 	// Default: Ollama (local, free)
 	fmt.Printf("🔑 Using Ollama (local) at %s\n", baseURL)
-	fmt.Println("💡 To use cloud providers: set OPENAI_API_KEY or GEMINI_API_KEY")
+	fmt.Println("💡 To use cloud providers: set OPENAI_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY, or configure AWS credentials")
 
 	return ClientConfig{
 		Provider: "ollama",

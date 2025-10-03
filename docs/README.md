@@ -26,6 +26,7 @@ Understand the library's design, components, and how they interact in [Architect
 
 Detailed information on each supported LLM provider, including features, setup, limitations, and troubleshooting:
 
+- [AWS Bedrock](providers/bedrock.md): Claude, Titan, and Llama models via AWS Bedrock (cloud-based, AWS account required).
 - [Gemini](providers/gemini.md): Google Gemini integration (cloud-based).
 - [OpenAI](providers/openai.md): GPT models via official API (cloud-based, paid).
 - [OpenRouter](providers/openrouter.md): Multi-provider API access (cloud-based, pay-per-use).

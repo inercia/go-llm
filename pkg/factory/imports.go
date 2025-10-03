@@ -2,6 +2,7 @@ package factory
 
 import (
 	"github.com/inercia/go-llm/pkg/llm"
+	"github.com/inercia/go-llm/pkg/providers/bedrock"
 	"github.com/inercia/go-llm/pkg/providers/deepseek"
 	"github.com/inercia/go-llm/pkg/providers/gemini"
 	"github.com/inercia/go-llm/pkg/providers/mock"
@@ -34,6 +35,11 @@ func init() {
 	// Register the ollama provider
 	RegisterProvider("ollama", func(config llm.ClientConfig) (llm.Client, error) {
 		return ollama.NewClient(config)
+	})
+
+	// Register the bedrock provider
+	RegisterProvider("bedrock", func(config llm.ClientConfig) (llm.Client, error) {
+		return bedrock.NewClient(config)
 	})
 
 	// Register the mock provider

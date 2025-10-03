@@ -1,5 +1,7 @@
 # Flexible, multi-provider LLM client library for Go
 
+[![CI](https://github.com/inercia/go-llm/actions/workflows/ci.yml/badge.svg)](https://github.com/inercia/go-llm/actions/workflows/ci.yml)
+
 ## Documentation
 
 For comprehensive guides, usage examples, and provider-specific details, see the [docs/README.md](docs/README.md).
@@ -15,17 +17,20 @@ All LLM providers implement the following interface:
 
 ```go
 type Client interface {
-    // ChatCompletion performs a chat completion request
-    ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error)
+	// ChatCompletion performs a chat completion request
+	ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 
-    // StreamChatCompletion performs a streaming chat completion request
-    StreamChatCompletion(ctx context.Context, req ChatRequest) (<-chan StreamEvent, error)
+	// StreamChatCompletion performs a streaming chat completion request
+	StreamChatCompletion(ctx context.Context, req ChatRequest) (<-chan StreamEvent, error)
 
-    // GetModelInfo returns information about the model being used
-    GetModelInfo() ModelInfo
+	// GetRemoteInfo returns information about the client
+	GetRemote() ClientRemoteInfo
 
-    // Close cleans up any resources used by the client
-    Close() error
+	// GetModelInfo returns information about the model being used
+	GetModelInfo() ModelInfo
+
+	// Close cleans up any resources used by the client
+	Close() error
 }
 ```
 

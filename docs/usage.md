@@ -10,6 +10,132 @@ Add the package to your Go module:
 go get github.com/inercia/go-llm
 ```
 
+## Automatic Configuration from Environment Variables
+
+The library can automatically detect and configure clients based on environment variables, eliminating the need for manual provider selection. Use `llm.GetLLMFromEnv()` to get a configuration that will be automatically selected based on available credentials.
+
+### Priority Order
+
+The library checks for credentials in this order (first match wins):
+
+1. **Custom OpenAI-compatible endpoint** (if `OPENAI_BASE_URL` is set)
+2. **OpenAI API** (if `OPENAI_API_KEY` is set)
+3. **Gemini API** (if `GEMINI_API_KEY` is set)
+4. **DeepSeek API** (if `DEEPSEEK_API_KEY` is set)
+5. **OpenRouter API** (if `OPENROUTER_API_KEY` is set)
+6. **AWS Bedrock** (if AWS credentials are available)
+7. **Ollama** (local fallback)
+
+### Environment Variables
+
+#### OpenAI / Custom OpenAI-compatible
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+export OPENAI_MODEL="gpt-4o"                    # optional, defaults to gpt-4o-mini
+export OPENAI_TIMEOUT="30"                      # optional, seconds
+export OPENAI_BASE_URL="http://localhost:8080"  # for custom endpoints
+```
+
+#### Gemini
+
+```bash
+export GEMINI_API_KEY="your-gemini-api-key"
+export GEMINI_MODEL="gemini-1.5-pro"           # optional, defaults to gemini-1.5-flash
+export GEMINI_TIMEOUT="30"                     # optional, seconds
+```
+
+#### DeepSeek
+
+```bash
+export DEEPSEEK_API_KEY="your-deepseek-api-key"
+export DEEPSEEK_MODEL="deepseek-coder"         # optional, defaults to deepseek-chat
+export DEEPSEEK_TIMEOUT="30"                   # optional, seconds
+```
+
+#### OpenRouter
+
+```bash
+export OPENROUTER_API_KEY="your-openrouter-api-key"
+export OPENROUTER_MODEL="anthropic/claude-3.5-sonnet"  # optional, defaults to free llama model
+export OPENROUTER_TIMEOUT="30"                         # optional, seconds
+```
+
+#### AWS Bedrock
+
+```bash
+export AWS_ACCESS_KEY_ID="your-aws-access-key"
+export AWS_SECRET_ACCESS_KEY="your-aws-secret-key"
+export AWS_REGION="us-east-1"                          # optional, defaults to us-east-1
+export AWS_BEDROCK_MODEL="anthropic.claude-3-sonnet-20240229-v1:0"  # optional
+export BEDROCK_MODEL="anthropic.claude-3-haiku-20240307-v1:0"       # alternative
+export AWS_BEDROCK_TIMEOUT="60"                        # optional, seconds
+# Endpoint configuration (optional)
+export AWS_BEDROCK_ENDPOINT="https://bedrock.custom.amazonaws.com"          # bedrock service endpoint
+export AWS_BEDROCK_RUNTIME_ENDPOINT="https://bedrock-runtime.custom.amazonaws.com"  # runtime endpoint
+export BEDROCK_ENDPOINT="https://bedrock-runtime.custom.amazonaws.com"      # alternative runtime endpoint
+```
+
+#### Ollama (Local Fallback)
+
+```bash
+export OLLAMA_TIMEOUT="60"                     # optional, seconds
+# Ollama runs on http://localhost:11434 by default
+```
+
+### Usage Example
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/inercia/go-llm/pkg/factory"
+    "github.com/inercia/go-llm/pkg/llm"
+)
+
+func main() {
+    // Automatically detect provider from environment
+    config := llm.GetLLMFromEnv()
+    fmt.Printf("Using provider: %s with model: %s\n", config.Provider, config.Model)
+
+    // Create client with auto-detected config
+    client, err := factory.New().CreateClient(config)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Use the client normally
+    resp, err := client.ChatCompletion(context.Background(), llm.ChatRequest{
+        Messages: []llm.Message{
+            llm.NewTextMessage(llm.RoleUser, "Hello!"),
+        },
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(resp.Choices[0].Message.GetText())
+}
+```
+
+### Manual Configuration
+
+You can still manually specify provider configurations if needed:
+
+```go
+client, err := factory.New().CreateClient(llm.ClientConfig{
+    Provider: "bedrock",
+    Model:    "anthropic.claude-3-sonnet-20240229-v1:0",
+    Extra: map[string]string{
+        "region": "us-west-2",
+    },
+})
+```
+
 ## Basic Chat Completion (Non-Streaming)
 
 Send a chat request and receive a full response.
