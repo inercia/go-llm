@@ -36,10 +36,13 @@ type Client interface {
 
 ### Provider Implementations
 
-- **OpenAI Client** - Uses `go-openai` library internally
-- **Gemini Client** - Native HTTP implementation with proper error handling
-- **OpenRouter Client** - Multi-provider access via `go-openrouter` library
-- **Mock Client** - For testing and development
+- [**OpenAI Client**](docs/providers/openai.md) - Uses `go-openai` library internally
+- [**Gemini Client**](docs/providers/gemini.md) - Native HTTP implementation with proper error handling
+- [**OpenRouter Client**](docs/providers/openrouter.md) - Multi-provider access via `go-openrouter` library
+- [**Ollama Client**](docs/providers/openrouter.md) - Native Ollama provider.
+- [**AWS Bedrock Client**](docs/providers/bedrock.md) - Uses the AWS SDK for Go.
+- **DeepSeek Client** - Using `cohesion-org/deepseek-go`.
+- [**Mock Client**](docs/providers/mock.md) - For testing and development
 
 ### Simple Factory Pattern
 
