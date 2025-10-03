@@ -45,12 +45,12 @@ if err != nil {
 
 imageContent := llm.NewImageContentFromBytes(imageData, "image/jpeg")
 
-// From base64 string
+// From base64 string (note: this helper doesn't exist, use URL format instead)
 base64Image := "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD..."
-imageContent := llm.NewImageContentFromBase64(base64Image)
+imageContent := llm.NewImageContentFromURL(base64Image, "image/jpeg")
 
 // From URL (if supported by provider)
-imageContent := llm.NewImageContentFromURL("https://example.com/image.jpg")
+imageContent := llm.NewImageContentFromURL("https://example.com/image.jpg", "image/jpeg")
 ```
 
 ### File Content
@@ -72,8 +72,8 @@ fileContent := llm.NewFileContentFromBytes(
 
 // Or from string
 csvData := "name,age,city\nAlice,30,New York\nBob,25,London"
-fileContent := llm.NewFileContentFromString(
-    csvData,
+fileContent := llm.NewFileContentFromBytes(
+    []byte(csvData),
     "data.csv",
     "text/csv",
 )
@@ -91,6 +91,7 @@ import (
     "fmt"
     "log"
     "os"
+    "path/filepath"
 
     "github.com/inercia/go-llm/pkg/llm"
     "github.com/inercia/go-llm/pkg/factory"
@@ -354,7 +355,7 @@ func streamMultimodalAnalysis(client llm.Client) error {
                 },
             },
         },
-        Stream: true,
+        // Note: Stream field is set automatically by StreamChatCompletion method
     }
 
     stream, err := client.StreamChatCompletion(context.Background(), req)

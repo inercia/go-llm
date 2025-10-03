@@ -12,15 +12,12 @@ import (
 )
 
 func main() {
-	// Create factory
-	factory := factory.New()
+	// Automatically detect and configure LLM provider from environment variables
+	// This function checks for API keys in priority order and selects the best available provider
+	config := llm.GetLLMFromEnv()
 
-	// Create OpenAI client (replace with your API key)
-	client, err := factory.CreateClient(llm.ClientConfig{
-		Provider: "openai",
-		Model:    "gpt-3.5-turbo",
-		APIKey:   "your-openai-api-key", // Replace with actual key
-	})
+	factory := factory.New()
+	client, err := factory.CreateClient(config)
 	if err != nil {
 		log.Fatal("Failed to create client:", err)
 	}

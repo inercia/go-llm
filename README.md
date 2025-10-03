@@ -129,3 +129,7 @@ if modelInfo.SupportsStreaming {
     fmt.Println(resp.Choices[0].Message.GetText())
 }
 ```
+
+## More examples
+
+Check out the [examples/](examples/) directory for practical demonstrations:

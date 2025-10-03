@@ -22,6 +22,7 @@ import (
     "fmt"
     "log"
     "strings"
+    "time"
 
     "github.com/inercia/go-llm/pkg/llm"
     "github.com/inercia/go-llm/pkg/factory"
@@ -54,7 +55,7 @@ func main() {
                 llm.NewTextContent("Tell me a short story about AI."),
             }},
         },
-        Stream: true, // Enable streaming
+        // Note: Stream field is not used - streaming is determined by calling StreamChatCompletion
     }
 
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -128,7 +129,7 @@ func streamWithTimeout(client llm.Client) error {
                 llm.NewTextContent("Explain quantum computing in detail."),
             }},
         },
-        Stream: true,
+        // Stream is determined by calling StreamChatCompletion method
     }
 
     stream, err := client.StreamChatCompletion(ctx, req)
@@ -163,7 +164,7 @@ func streamWithProgress(client llm.Client, progressCallback func(int)) error {
                 llm.NewTextContent("Write a comprehensive guide on Go concurrency."),
             }},
         },
-        Stream: true,
+        // Stream is determined by calling StreamChatCompletion method
     }
 
     stream, err := client.StreamChatCompletion(context.Background(), req)
@@ -205,7 +206,7 @@ func handleMultipleStreams(client llm.Client, queries []string) {
                         llm.NewTextContent(q),
                     }},
                 },
-                Stream: true,
+                // Stream is determined by calling StreamChatCompletion method
             }
 
             stream, err := client.StreamChatCompletion(context.Background(), req)
@@ -269,7 +270,7 @@ func streamWithTools(client llm.Client) error {
             }},
         },
         Tools:  []llm.Tool{calculatorTool},
-        Stream: true,
+        // Stream is determined by calling StreamChatCompletion method
     }
 
     stream, err := client.StreamChatCompletion(context.Background(), req)
