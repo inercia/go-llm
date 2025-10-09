@@ -2,8 +2,12 @@ package bedrock
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,9 +16,78 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/bedrock"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
+	"github.com/aws/smithy-go/auth"
+	"github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/inercia/go-llm/pkg/llm"
 )
+
+const (
+	DefaultRegion = "us-east-1"
+)
+
+// modelCapabilities defines the capabilities for a model pattern
+type modelCapabilities struct {
+	pattern        *regexp.Regexp
+	maxTokens      int
+	supportsTools  bool
+	supportsVision bool
+	supportsFiles  bool
+}
+
+// modelCapabilitiesList defines capabilities for different Bedrock models
+// Models are matched in order, first match wins
+var modelCapabilitiesList = []modelCapabilities{
+	// Claude 3.x/4.x models - matches sonnet, opus, haiku variants
+	{
+		pattern:        regexp.MustCompile(`claude-(?:sonnet|opus|haiku)`),
+		maxTokens:      200000,
+		supportsTools:  true,
+		supportsVision: true,
+		supportsFiles:  true,
+	},
+	// Claude 3.x models (legacy pattern)
+	{
+		pattern:        regexp.MustCompile(`claude-[34]`),
+		maxTokens:      200000,
+		supportsTools:  true,
+		supportsVision: true,
+		supportsFiles:  true,
+	},
+	// Claude v2 models
+	{
+		pattern:        regexp.MustCompile(`claude-v2`),
+		maxTokens:      100000,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  true,
+	},
+	// Amazon Titan models
+	{
+		pattern:        regexp.MustCompile(`titan`),
+		maxTokens:      8000,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  true,
+	},
+	// Meta Llama 2 70B models
+	{
+		pattern:        regexp.MustCompile(`llama.*70b`),
+		maxTokens:      4096,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  true,
+	},
+	// Other Llama models
+	{
+		pattern:        regexp.MustCompile(`llama`),
+		maxTokens:      2048,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  true,
+	},
+}
 
 // Client implements the llm.Client interface for AWS Bedrock
 type Client struct {
@@ -23,24 +96,94 @@ type Client struct {
 	model                string
 	region               string
 	provider             string
+	timeout              time.Duration
 
 	// Health check caching
 	lastHealthCheck  *time.Time
 	lastHealthStatus *bool
 }
 
+// noAuthSchemeResolver disables AWS authentication when using bearer tokens
+type noAuthSchemeResolver struct{}
+
+// ResolveAuthSchemes returns an anonymous auth scheme that skips AWS signing
+func (r *noAuthSchemeResolver) ResolveAuthSchemes(ctx context.Context, params *bedrockruntime.AuthResolverParameters) ([]*auth.Option, error) {
+	// Return an anonymous auth scheme to skip AWS signature signing
+	return []*auth.Option{
+		{
+			SchemeID: "smithy.api#noAuth",
+		},
+	}, nil
+}
+
 // NewClient creates a new AWS Bedrock client
 func NewClient(config llm.ClientConfig) (*Client, error) {
 	// Get region from Extra config or use default
-	region := "us-east-1"
+	region := DefaultRegion
 	if config.Extra != nil {
 		if r, exists := config.Extra["region"]; exists {
 			region = r
 		}
 	}
 
-	// Create AWS configuration
-	awsConfig, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(region))
+	// Check if AWS_BEDROCK_TOKEN is provided (bearer token authentication)
+	var bearerToken string
+	if config.Extra != nil {
+		if token, exists := config.Extra["aws_bedrock_token"]; exists && token != "" {
+			bearerToken = token
+		}
+	}
+
+	// Set default timeout if not provided
+	// Use a shorter default to prevent test timeouts
+	timeout := config.Timeout
+	if timeout == 0 {
+		timeout = 30 * time.Second // Default 30s timeout - aggressive to prevent hangs
+	}
+
+	// Create HTTP client with aggressive timeouts to prevent hangs
+	// Disable HTTP/2 to avoid connection multiplexing issues where one stuck connection hangs all requests
+	httpClient := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   5 * time.Second, // Shorter connection timeout
+				KeepAlive: 0,               // Disable keep-alive
+			}).DialContext,
+			DisableKeepAlives:     true,            // Force close connections after each request
+			ForceAttemptHTTP2:     false,           // Disable HTTP/2
+			MaxIdleConns:          0,               // No idle connections
+			MaxIdleConnsPerHost:   0,               // No idle connections per host
+			IdleConnTimeout:       1 * time.Second, // Very short idle timeout
+			TLSHandshakeTimeout:   5 * time.Second, // Shorter TLS timeout
+			ExpectContinueTimeout: 1 * time.Second,
+			ResponseHeaderTimeout: 30 * time.Second, // Max time waiting for response headers
+			MaxConnsPerHost:       10,               // Limit concurrent connections
+			// Disable HTTP/2 by setting TLSNextProto to empty map (prevents HTTP/2 upgrade)
+			TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
+		},
+	}
+
+	// Create AWS configuration with custom HTTP client
+	// If bearer token is provided, skip credential loading (anonymous config)
+	var awsConfig aws.Config
+	var err error
+	if bearerToken != "" {
+		// For bearer token auth, use anonymous credentials
+		awsConfig, err = awsconfig.LoadDefaultConfig(context.Background(),
+			awsconfig.WithRegion(region),
+			awsconfig.WithCredentialsProvider(aws.AnonymousCredentials{}),
+			awsconfig.WithHTTPClient(httpClient),
+		)
+	} else {
+		// Standard AWS credential chain
+		awsConfig, err = awsconfig.LoadDefaultConfig(context.Background(),
+			awsconfig.WithRegion(region),
+			awsconfig.WithHTTPClient(httpClient),
+		)
+	}
+
 	if err != nil {
 		return nil, &llm.Error{
 			Code:    "aws_config_error",
@@ -49,7 +192,27 @@ func NewClient(config llm.ClientConfig) (*Client, error) {
 		}
 	}
 
+	// Create middleware to add Authorization header if bearer token is provided
+	var authMiddleware func(*middleware.Stack) error
+	if bearerToken != "" {
+		// Capture bearer token in closure
+		token := bearerToken
+		authMiddleware = func(stack *middleware.Stack) error {
+			return stack.Finalize.Add(middleware.FinalizeMiddlewareFunc(
+				"BedrockBearerTokenAuth",
+				func(ctx context.Context, in middleware.FinalizeInput, next middleware.FinalizeHandler) (middleware.FinalizeOutput, middleware.Metadata, error) {
+					// Add Authorization header with bearer token
+					if req, ok := in.Request.(*smithyhttp.Request); ok && req != nil && req.Header != nil {
+						req.Header.Set("Authorization", "Bearer "+token)
+					}
+					return next.HandleFinalize(ctx, in)
+				},
+			), middleware.Before)
+		}
+	}
+
 	// Create Bedrock clients with optional custom endpoints
+	// Note: bedrockClient is used for health checks - when using bearer token, health checks will be disabled
 	bedrockClient := bedrock.NewFromConfig(awsConfig, func(o *bedrock.Options) {
 		if config.Extra != nil {
 			if endpoint, exists := config.Extra["bedrock_endpoint"]; exists && endpoint != "" {
@@ -59,32 +222,78 @@ func NewClient(config llm.ClientConfig) (*Client, error) {
 	})
 
 	bedrockRuntimeClient := bedrockruntime.NewFromConfig(awsConfig, func(o *bedrockruntime.Options) {
+		// Set custom endpoint if provided
+		var customEndpoint string
 		if config.Extra != nil {
 			if endpoint, exists := config.Extra["bedrock_runtime_endpoint"]; exists && endpoint != "" {
-				o.BaseEndpoint = aws.String(endpoint)
+				customEndpoint = endpoint
 			}
 			// Support BaseURL for backward compatibility and consistency with other providers
-			if endpoint, exists := config.Extra["base_url"]; exists && endpoint != "" {
-				o.BaseEndpoint = aws.String(endpoint)
+			if endpoint, exists := config.Extra["base_url"]; exists && endpoint != "" && customEndpoint == "" {
+				customEndpoint = endpoint
 			}
 		}
 		// Support config.BaseURL for consistency with other providers
-		if config.BaseURL != "" {
-			o.BaseEndpoint = aws.String(config.BaseURL)
+		if config.BaseURL != "" && customEndpoint == "" {
+			customEndpoint = config.BaseURL
+		}
+
+		// Apply custom endpoint if set
+		if customEndpoint != "" {
+			o.BaseEndpoint = aws.String(customEndpoint)
+		}
+
+		// When using bearer token auth, disable AWS signing
+		if bearerToken != "" {
+			// Remove auth scheme resolver to prevent AWS signature signing
+			o.AuthSchemeResolver = &noAuthSchemeResolver{}
+		}
+
+		// Add bearer token authentication middleware if provided
+		if authMiddleware != nil {
+			o.APIOptions = append(o.APIOptions, authMiddleware)
 		}
 	})
 
-	return &Client{
+	client := &Client{
 		bedrockClient:        bedrockClient,
 		bedrockRuntimeClient: bedrockRuntimeClient,
 		model:                config.Model,
 		region:               region,
 		provider:             "bedrock",
-	}, nil
+		timeout:              timeout,
+	}
+
+	// If using bearer token, disable health checks (they won't work with bearer token auth)
+	if bearerToken != "" {
+		// Pre-set health status to avoid attempts to call ListFoundationModels
+		now := time.Now()
+		healthy := true
+		client.lastHealthCheck = &now
+		client.lastHealthStatus = &healthy
+	}
+
+	return client, nil
+}
+
+// ensureTimeout wraps a context with a timeout if it doesn't already have a deadline
+// Returns the context and a cancel function. The cancel function should be called when done.
+func (c *Client) ensureTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	// If context already has a deadline, use it as-is
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		return ctx, func() {} // No-op cancel function
+	}
+
+	// Otherwise, add our default timeout
+	return context.WithTimeout(ctx, c.timeout)
 }
 
 // ChatCompletion performs a chat completion request
 func (c *Client) ChatCompletion(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
+	// Apply timeout if context doesn't have a deadline
+	ctx, cancel := c.ensureTimeout(ctx)
+	defer cancel()
+
 	// Convert request based on model type
 	payload, err := c.convertRequest(req)
 	if err != nil {
@@ -107,6 +316,11 @@ func (c *Client) ChatCompletion(ctx context.Context, req llm.ChatRequest) (*llm.
 
 // StreamChatCompletion performs a streaming chat completion request
 func (c *Client) StreamChatCompletion(ctx context.Context, req llm.ChatRequest) (<-chan llm.StreamEvent, error) {
+	// Apply timeout if context doesn't have a deadline
+	ctx, cancel := c.ensureTimeout(ctx)
+	// Note: We don't defer cancel() here because the goroutine will use the context
+	// The goroutine monitors ctx.Done() and will handle cleanup
+
 	// Convert request based on model type
 	payload, err := c.convertRequest(req)
 	if err != nil {
@@ -127,26 +341,71 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req llm.ChatRequest) 
 
 	go func() {
 		defer close(ch)
+		defer cancel() // Cancel the context when the goroutine exits
 
-		for event := range response.GetStream().Events() {
-			switch v := event.(type) {
-			case *types.ResponseStreamMemberChunk:
-				// Parse the chunk and send delta event
-				if err := c.processStreamChunk(v.Value.Bytes, ch); err != nil {
-					ch <- llm.NewErrorEvent(c.convertError(err))
+		eventStream := response.GetStream()
+		eventCh := eventStream.Events()
+
+		// Safety timeout to prevent goroutine leaks - use 30 seconds as a reasonable max
+		timeout := time.NewTimer(30 * time.Second)
+		defer timeout.Stop()
+
+		eventCount := 0
+		maxEvents := 1000 // Safety limit to prevent infinite loops
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Context cancelled, send error and exit
+				ch <- llm.NewErrorEvent(c.convertError(ctx.Err()))
+				return
+			case <-timeout.C:
+				// Safety timeout reached, close stream
+				ch <- llm.NewErrorEvent(&llm.Error{
+					Code:    "timeout",
+					Message: "stream timeout after 30 seconds",
+					Type:    "timeout_error",
+				})
+				return
+			case event, ok := <-eventCh:
+				if !ok {
+					// Channel closed, check for stream errors
+					if err := eventStream.Err(); err != nil {
+						ch <- llm.NewErrorEvent(c.convertError(err))
+						return
+					}
+					// Normal completion
+					ch <- llm.NewDoneEvent(0, "stop")
 					return
 				}
-			case *types.UnknownUnionMember:
-				// Log unknown events but continue processing
-				continue
-			default:
-				// Unknown event type, continue processing
-				continue
+
+				eventCount++
+				if eventCount > maxEvents {
+					// Safety limit reached
+					ch <- llm.NewErrorEvent(&llm.Error{
+						Code:    "max_events_exceeded",
+						Message: fmt.Sprintf("exceeded maximum event limit of %d", maxEvents),
+						Type:    "limit_error",
+					})
+					return
+				}
+
+				switch v := event.(type) {
+				case *types.ResponseStreamMemberChunk:
+					// Parse the chunk and send delta event
+					if err := c.processStreamChunk(v.Value.Bytes, ch); err != nil {
+						ch <- llm.NewErrorEvent(c.convertError(err))
+						return
+					}
+				case *types.UnknownUnionMember:
+					// Log unknown events but continue processing
+					continue
+				default:
+					// Unknown event type, continue processing
+					continue
+				}
 			}
 		}
-
-		// Send completion event
-		ch <- llm.NewDoneEvent(0, "stop")
 	}()
 
 	return ch, nil
@@ -189,15 +448,29 @@ func (c *Client) performHealthCheck() bool {
 
 // GetModelInfo returns information about the model being used
 func (c *Client) GetModelInfo() llm.ModelInfo {
-	maxTokens := c.getMaxTokensForModel(c.model)
+	// Default capabilities
+	caps := modelCapabilities{
+		maxTokens:      4000,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  true,
+	}
+
+	// Find matching model capabilities
+	for _, modelCaps := range modelCapabilitiesList {
+		if modelCaps.pattern.MatchString(c.model) {
+			caps = modelCaps
+			break
+		}
+	}
 
 	return llm.ModelInfo{
 		Name:              c.model,
 		Provider:          c.provider,
-		MaxTokens:         maxTokens,
-		SupportsTools:     c.supportsTools(c.model),
-		SupportsVision:    c.supportsVision(c.model),
-		SupportsFiles:     c.supportsFiles(c.model),
+		MaxTokens:         caps.maxTokens,
+		SupportsTools:     caps.supportsTools,
+		SupportsVision:    caps.supportsVision,
+		SupportsFiles:     caps.supportsFiles,
 		SupportsStreaming: true,
 	}
 }
@@ -637,51 +910,6 @@ func (c *Client) isTitanModel() bool {
 
 func (c *Client) isLlamaModel() bool {
 	return strings.Contains(c.model, "llama") || strings.Contains(c.model, "meta")
-}
-
-// getMaxTokensForModel returns the maximum tokens for the given model
-func (c *Client) getMaxTokensForModel(model string) int {
-	// Claude models
-	if strings.Contains(model, "claude-3") {
-		return 200000 // Claude 3 has 200k context
-	}
-	if strings.Contains(model, "claude-v2") {
-		return 100000 // Claude v2 has 100k context
-	}
-
-	// Titan models
-	if strings.Contains(model, "titan") {
-		return 8000 // Titan models typically have 8k context
-	}
-
-	// Llama models
-	if strings.Contains(model, "llama") {
-		if strings.Contains(model, "70b") {
-			return 4096 // Llama 2 70B
-		}
-		return 2048 // Default for Llama models
-	}
-
-	// Default
-	return 4000
-}
-
-// supportsTools checks if the model supports function calling
-func (c *Client) supportsTools(model string) bool {
-	// Claude 3 supports tools
-	return strings.Contains(model, "claude-3")
-}
-
-// supportsVision checks if the model supports vision inputs
-func (c *Client) supportsVision(model string) bool {
-	// Claude 3 supports vision
-	return strings.Contains(model, "claude-3")
-}
-
-// supportsFiles checks if the model supports file inputs
-func (c *Client) supportsFiles(model string) bool {
-	// Most Bedrock models can handle file content through context
-	return true
 }
 
 // convertError converts errors to our internal error format

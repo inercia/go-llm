@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -21,6 +22,44 @@ func safeIntToInt32(val int) int32 {
 		return -2147483648
 	}
 	return int32(val)
+}
+
+// modelCapabilities defines the capabilities for a model pattern
+type modelCapabilities struct {
+	pattern        *regexp.Regexp
+	maxTokens      int
+	supportsTools  bool
+	supportsVision bool
+	supportsFiles  bool
+}
+
+// modelCapabilitiesList defines capabilities for different Gemini models
+// Models are matched in order, first match wins
+var modelCapabilitiesList = []modelCapabilities{
+	// Gemini 1.5 Pro models (2M context)
+	{
+		pattern:        regexp.MustCompile(`gemini-1\.5-pro`),
+		maxTokens:      2000000,
+		supportsTools:  true,
+		supportsVision: true,
+		supportsFiles:  true,
+	},
+	// Gemini 1.5 Flash models (1M context)
+	{
+		pattern:        regexp.MustCompile(`gemini-1\.5-flash`),
+		maxTokens:      1000000,
+		supportsTools:  true,
+		supportsVision: true,
+		supportsFiles:  true,
+	},
+	// Gemini 1.0 Pro Vision
+	{
+		pattern:        regexp.MustCompile(`gemini-.*-vision`),
+		maxTokens:      30720,
+		supportsTools:  true,
+		supportsVision: true,
+		supportsFiles:  true,
+	},
 }
 
 type Client struct {
@@ -413,22 +452,30 @@ func (c *Client) performHealthCheck() bool {
 }
 
 func (c *Client) GetModelInfo() llm.ModelInfo {
-	// Default capabilities for Gemini models
-	maxTokens := 30720 // Default for most Gemini models
-	if strings.Contains(c.model, "gemini-1.5-pro") {
-		maxTokens = 2000000
-	} else if strings.Contains(c.model, "gemini-1.5-flash") {
-		maxTokens = 1000000
+	// Default capabilities
+	caps := modelCapabilities{
+		maxTokens:      30720,
+		supportsTools:  true,
+		supportsVision: true,
+		supportsFiles:  true,
+	}
+
+	// Find matching model capabilities
+	for _, modelCaps := range modelCapabilitiesList {
+		if modelCaps.pattern.MatchString(c.model) {
+			caps = modelCaps
+			break
+		}
 	}
 
 	return llm.ModelInfo{
 		Name:              c.model,
 		Provider:          c.provider,
-		MaxTokens:         maxTokens,
-		SupportsTools:     true, // Gemini supports function calling
-		SupportsVision:    true, // Most Gemini models support vision
-		SupportsFiles:     true, // Gemini supports file inputs
-		SupportsStreaming: true, // Gemini supports streaming
+		MaxTokens:         caps.maxTokens,
+		SupportsTools:     caps.supportsTools,
+		SupportsVision:    caps.supportsVision,
+		SupportsFiles:     caps.supportsFiles,
+		SupportsStreaming: true,
 	}
 }
 

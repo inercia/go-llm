@@ -163,7 +163,7 @@ func GetLLMFromEnv() ClientConfig {
 	}
 
 	// Priority 6: AWS Bedrock (uses AWS credential chain)
-	if os.Getenv("AWS_ACCESS_KEY_ID") != "" || os.Getenv("AWS_PROFILE") != "" || os.Getenv("AWS_BEDROCK_MODEL") != "" {
+	if os.Getenv("AWS_ACCESS_KEY_ID") != "" || os.Getenv("AWS_PROFILE") != "" || os.Getenv("AWS_BEDROCK_MODEL") != "" || os.Getenv("AWS_BEDROCK_TOKEN") != "" {
 		fmt.Println("🔑 Using AWS Bedrock")
 		model := DefaultBedrockModel
 
@@ -192,14 +192,21 @@ func GetLLMFromEnv() ClientConfig {
 		}
 		config.Extra["region"] = region
 
-		// Add custom endpoints if specified
-		if bedrockEndpoint := os.Getenv("AWS_BEDROCK_ENDPOINT"); bedrockEndpoint != "" {
-			config.Extra["bedrock_endpoint"] = bedrockEndpoint
+		// Add authentication token if specified
+		if token := os.Getenv("AWS_BEDROCK_TOKEN"); token != "" {
+			config.Extra["aws_bedrock_token"] = token
 		}
+
+		// Add custom endpoints if specified
+		// AWS_BEDROCK_ENDPOINT is the runtime endpoint (most common)
+		if bedrockEndpoint := os.Getenv("AWS_BEDROCK_ENDPOINT"); bedrockEndpoint != "" {
+			config.Extra["bedrock_runtime_endpoint"] = bedrockEndpoint
+		}
+		// AWS_BEDROCK_RUNTIME_ENDPOINT is an explicit runtime endpoint
 		if bedrockRuntimeEndpoint := os.Getenv("AWS_BEDROCK_RUNTIME_ENDPOINT"); bedrockRuntimeEndpoint != "" {
 			config.Extra["bedrock_runtime_endpoint"] = bedrockRuntimeEndpoint
 		}
-		// Support generic BEDROCK_ENDPOINT for runtime endpoint (most common use case)
+		// BEDROCK_ENDPOINT for backward compatibility
 		if bedrockEndpoint := os.Getenv("BEDROCK_ENDPOINT"); bedrockEndpoint != "" {
 			config.Extra["base_url"] = bedrockEndpoint
 		}

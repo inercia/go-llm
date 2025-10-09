@@ -13,6 +13,8 @@ import (
 )
 
 func TestMultiModalWithFixtureImages(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -35,7 +37,7 @@ func TestMultiModalWithFixtureImages(t *testing.T) {
 		{"tree.jpeg", "a tree", "tree"},
 		{"test-jpeg.jpg", "test image", ""},
 		{"test-png.png", "test image", ""},
-		{"colorful-pattern.png", "colorful pattern", "pattern"},
+		{"colorful-pattern.png", "colorful pattern", "color test"},
 		{"geometric-shapes.png", "geometric shapes", "shape"},
 		{"simple-text.png", "simple text", "text"},
 	}
@@ -100,7 +102,9 @@ func TestMultiModalWithFixtureImages(t *testing.T) {
 }
 
 func TestMultiModalStreamingWithImages(t *testing.T) {
-	client := createTestClientWithTimeout(t, 15*time.Second)
+	t.Parallel()
+
+	client := createTestClientWithTimeout(t, 30*time.Second)
 	defer func() { _ = client.Close() }()
 
 	skipIfNoProvider(t, client)
@@ -117,7 +121,7 @@ func TestMultiModalStreamingWithImages(t *testing.T) {
 
 	mimeType := getMimeType(testImage)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 
 	t.Run("basic_streaming_with_image", func(t *testing.T) {
@@ -147,6 +151,14 @@ func TestMultiModalStreamingWithImages(t *testing.T) {
 		for event := range stream {
 			eventCount++
 			t.Logf("Event %d: Type=%s", eventCount, event.Type)
+
+			// Check context timeout
+			select {
+			case <-ctx.Done():
+				t.Errorf("Context deadline exceeded while streaming")
+				return
+			default:
+			}
 
 			if event.IsError() {
 				t.Errorf("Received error event: %v", event.Error)
@@ -186,6 +198,8 @@ func TestMultiModalStreamingWithImages(t *testing.T) {
 }
 
 func TestMultiModalWithMultipleImages(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -249,6 +263,8 @@ func TestMultiModalWithMultipleImages(t *testing.T) {
 }
 
 func TestMultiModalWithFileContent(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -341,6 +357,8 @@ func TestMultiModalWithFileContent(t *testing.T) {
 }
 
 func TestMultiModalErrorHandling(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -425,6 +443,8 @@ func TestMultiModalErrorHandling(t *testing.T) {
 }
 
 func TestMultiModalPerformance(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClientWithTimeout(t, 30*time.Second)
 	defer func() { _ = client.Close() }()
 

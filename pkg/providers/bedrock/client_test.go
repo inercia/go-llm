@@ -148,11 +148,14 @@ func TestModelDetection(t *testing.T) {
 			if got := client.isLlamaModel(); got != tt.wantLlama {
 				t.Errorf("isLlamaModel() = %v, want %v", got, tt.wantLlama)
 			}
-			if got := client.supportsVision(tt.model); got != tt.wantVision {
-				t.Errorf("supportsVision() = %v, want %v", got, tt.wantVision)
+
+			// Check capabilities via GetModelInfo()
+			modelInfo := client.GetModelInfo()
+			if got := modelInfo.SupportsVision; got != tt.wantVision {
+				t.Errorf("SupportsVision = %v, want %v", got, tt.wantVision)
 			}
-			if got := client.supportsTools(tt.model); got != tt.wantTools {
-				t.Errorf("supportsTools() = %v, want %v", got, tt.wantTools)
+			if got := modelInfo.SupportsTools; got != tt.wantTools {
+				t.Errorf("SupportsTools = %v, want %v", got, tt.wantTools)
 			}
 		})
 	}

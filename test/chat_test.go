@@ -13,6 +13,8 @@ import (
 )
 
 func TestChatBasicFunctionality(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -96,15 +98,17 @@ func TestChatBasicFunctionality(t *testing.T) {
 }
 
 func TestChatStreaming(t *testing.T) {
-	client := createTestClientWithTimeout(t, 10*time.Second)
+	t.Parallel()
+
+	client := createTestClientWithTimeout(t, 20*time.Second)
 	defer func() { _ = client.Close() }()
 
 	skipIfNoProvider(t, client)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-
 	t.Run("basic_streaming", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
 		req := llm.ChatRequest{
 			Messages: []llm.Message{
 				{Role: llm.RoleUser, Content: []llm.MessageContent{
@@ -168,6 +172,8 @@ func TestChatStreaming(t *testing.T) {
 }
 
 func TestChatErrorHandling(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -222,6 +228,8 @@ func TestChatErrorHandling(t *testing.T) {
 }
 
 func TestChatModelInfo(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -242,6 +250,8 @@ func TestChatModelInfo(t *testing.T) {
 }
 
 func TestChatWithContext(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 

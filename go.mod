@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.12
 	github.com/aws/aws-sdk-go-v2/service/bedrock v1.47.2
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.41.0
+	github.com/aws/smithy-go v1.23.0
 	github.com/cohesion-org/deepseek-go v1.3.2
 	github.com/revrost/go-openrouter v0.2.3
 	github.com/sashabaranov/go-openai v1.41.1
@@ -30,7 +31,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.29.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6 // indirect
-	github.com/aws/smithy-go v1.23.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect

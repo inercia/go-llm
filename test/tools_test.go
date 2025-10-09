@@ -14,6 +14,8 @@ import (
 )
 
 func TestToolsBasicFunctionality(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -176,6 +178,8 @@ func TestToolsBasicFunctionality(t *testing.T) {
 }
 
 func TestToolsMultipleTools(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -274,6 +278,7 @@ func TestToolsMultipleTools(t *testing.T) {
 }
 
 func TestToolsConversationFlow(t *testing.T) {
+	t.Parallel()
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -364,6 +369,8 @@ func TestToolsConversationFlow(t *testing.T) {
 }
 
 func TestToolsErrorHandling(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClient(t)
 	defer func() { _ = client.Close() }()
 
@@ -430,6 +437,8 @@ func TestToolsErrorHandling(t *testing.T) {
 }
 
 func TestToolsStreaming(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClientWithTimeout(t, 15*time.Second)
 	defer func() { _ = client.Close() }()
 

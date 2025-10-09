@@ -12,6 +12,8 @@ import (
 )
 
 func TestFactoryWithEnvironmentConfig(t *testing.T) {
+	t.Parallel()
+
 	t.Run("get_llm_from_env", func(t *testing.T) {
 		// Test that GetLLMFromEnv returns a valid configuration
 		config := llm.GetLLMFromEnv()
@@ -63,6 +65,8 @@ func TestFactoryWithEnvironmentConfig(t *testing.T) {
 }
 
 func TestFactoryCustomConfigurations(t *testing.T) {
+	t.Parallel()
+
 	factory := factory.New()
 
 	t.Run("custom_timeout", func(t *testing.T) {
@@ -122,6 +126,8 @@ func TestFactoryCustomConfigurations(t *testing.T) {
 }
 
 func TestFactoryErrorHandling(t *testing.T) {
+	t.Parallel()
+
 	factory := factory.New()
 
 	t.Run("invalid_provider", func(t *testing.T) {
@@ -165,6 +171,8 @@ func TestFactoryErrorHandling(t *testing.T) {
 }
 
 func TestFactoryProviderCapabilities(t *testing.T) {
+	t.Parallel()
+
 	factory := factory.New()
 	config := llm.GetLLMFromEnv()
 
@@ -223,6 +231,8 @@ func TestFactoryProviderCapabilities(t *testing.T) {
 }
 
 func TestFactoryMultipleClients(t *testing.T) {
+	t.Parallel()
+
 	factory := factory.New()
 	config := llm.GetLLMFromEnv()
 

@@ -43,7 +43,9 @@ test-medium-parallel:
 
 test-integration:
 	@echo "Running integration tests..."
-	go test -v -timeout=60s -race ./test/...
+	@echo "... related env vars:"
+	@env | grep -E "(AWS_|BEDROCK_|GEMINI_|OPENAI_|OPENROUTER_|DEEPSEEK_)"
+	go test -v -timeout=300s -parallel 4 -race ./test/...
 
 # Provider-specific tests
 test-openai:

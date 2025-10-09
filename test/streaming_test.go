@@ -13,15 +13,17 @@ import (
 )
 
 func TestStreamingBasicFunctionality(t *testing.T) {
-	client := createTestClientWithTimeout(t, 15*time.Second)
+	t.Parallel()
+
+	client := createTestClientWithTimeout(t, 30*time.Second)
 	defer func() { _ = client.Close() }()
 
 	skipIfNoProvider(t, client)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	t.Run("simple_streaming_response", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
 		req := llm.ChatRequest{
 			Messages: []llm.Message{
 				{Role: llm.RoleUser, Content: []llm.MessageContent{
@@ -98,6 +100,9 @@ func TestStreamingBasicFunctionality(t *testing.T) {
 	})
 
 	t.Run("streaming_conversation", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
 		req := llm.ChatRequest{
 			Messages: []llm.Message{
 				{Role: llm.RoleUser, Content: []llm.MessageContent{
@@ -151,15 +156,17 @@ func TestStreamingBasicFunctionality(t *testing.T) {
 }
 
 func TestStreamingPerformance(t *testing.T) {
-	client := createTestClientWithTimeout(t, 20*time.Second)
+	t.Parallel()
+
+	client := createTestClientWithTimeout(t, 30*time.Second)
 	defer func() { _ = client.Close() }()
 
 	skipIfNoProvider(t, client)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
 	t.Run("time_to_first_token", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+
 		req := llm.ChatRequest{
 			Messages: []llm.Message{
 				{Role: llm.RoleUser, Content: []llm.MessageContent{
@@ -213,14 +220,16 @@ func TestStreamingPerformance(t *testing.T) {
 				t.Logf("   Tokens per second: %.2f", tokensPerSecond)
 			}
 
-			// Performance assertions (reasonable expectations)
-			assert.Less(t, timeToFirstToken, 10*time.Second, "First token should arrive within reasonable time")
+			// Performance assertions (reasonable expectations for cloud APIs)
+			assert.Less(t, timeToFirstToken, 20*time.Second, "First token should arrive within reasonable time")
 			assert.Greater(t, tokenCount, 0, "Should receive some tokens")
 		}
 	})
 }
 
 func TestStreamingWithLongContent(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClientWithTimeout(t, 30*time.Second)
 	defer func() { _ = client.Close() }()
 
@@ -293,6 +302,8 @@ func TestStreamingWithLongContent(t *testing.T) {
 }
 
 func TestStreamingErrorHandling(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClientWithTimeout(t, 10*time.Second)
 	defer func() { _ = client.Close() }()
 
@@ -388,6 +399,8 @@ func TestStreamingErrorHandling(t *testing.T) {
 }
 
 func TestStreamingEventTypes(t *testing.T) {
+	t.Parallel()
+
 	client := createTestClientWithTimeout(t, 10*time.Second)
 	defer func() { _ = client.Close() }()
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,6 +19,52 @@ import (
 const DefaultOllamaModel = "gpt-oss:20b"
 
 const DefaultOllamaBaseURL = "http://localhost:11434"
+
+// modelCapabilities defines the capabilities for a model pattern
+type modelCapabilities struct {
+	pattern        *regexp.Regexp
+	maxTokens      int
+	supportsTools  bool
+	supportsVision bool
+	supportsFiles  bool
+}
+
+// modelCapabilitiesList defines capabilities for different Ollama models
+// Models are matched in order, first match wins
+var modelCapabilitiesList = []modelCapabilities{
+	// Llama 3.1 models (131K context)
+	{
+		pattern:        regexp.MustCompile(`llama3\.1`),
+		maxTokens:      131072,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  false,
+	},
+	// Qwen models (32K context)
+	{
+		pattern:        regexp.MustCompile(`qwen`),
+		maxTokens:      32768,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  false,
+	},
+	// CodeLlama models (16K context)
+	{
+		pattern:        regexp.MustCompile(`codellama`),
+		maxTokens:      16384,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  false,
+	},
+	// Vision models (LLaVA, etc.)
+	{
+		pattern:        regexp.MustCompile(`llava|vision`),
+		maxTokens:      4096,
+		supportsTools:  false,
+		supportsVision: true,
+		supportsFiles:  false,
+	},
+}
 
 // Client implements the llm.Client interface for Ollama
 type Client struct {
@@ -292,24 +339,30 @@ func (c *Client) performHealthCheck() bool {
 
 // GetModelInfo returns information about the model
 func (c *Client) GetModelInfo() llm.ModelInfo {
-	// Default capabilities for Ollama models
-	maxTokens := 4096
-	if strings.Contains(c.model, "llama3.1") {
-		maxTokens = 131072
-	} else if strings.Contains(c.model, "codellama") {
-		maxTokens = 16384
-	} else if strings.Contains(c.model, "qwen") {
-		maxTokens = 32768
+	// Default capabilities
+	caps := modelCapabilities{
+		maxTokens:      4096,
+		supportsTools:  false,
+		supportsVision: false,
+		supportsFiles:  false,
+	}
+
+	// Find matching model capabilities
+	for _, modelCaps := range modelCapabilitiesList {
+		if modelCaps.pattern.MatchString(c.model) {
+			caps = modelCaps
+			break
+		}
 	}
 
 	return llm.ModelInfo{
 		Name:              c.model,
 		Provider:          "ollama",
-		MaxTokens:         maxTokens,
-		SupportsTools:     false, // Most Ollama models don't support tools yet
-		SupportsVision:    false, // Basic text models by default
-		SupportsFiles:     false,
-		SupportsStreaming: true, // Ollama supports streaming
+		MaxTokens:         caps.maxTokens,
+		SupportsTools:     caps.supportsTools,
+		SupportsVision:    caps.supportsVision,
+		SupportsFiles:     caps.supportsFiles,
+		SupportsStreaming: true,
 	}
 }
 
