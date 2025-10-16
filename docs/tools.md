@@ -18,13 +18,14 @@ The library supports OpenAI-compatible tool definitions and provides both synchr
 
 ### Simple Calculator Tool
 
+```go
 package main
 
 import (
-"context"
-"fmt"
-"log"
-"time"
+    "context"
+    "fmt"
+    "log"
+    "time"
 
     "github.com/inercia/go-llm/pkg/llm"
     "github.com/inercia/go-llm/pkg/factory"
@@ -32,8 +33,8 @@ import (
 )
 
 func main() {
-// Create client - registry auto-imports all providers
-factory := factory.New()
+    // Create client - registry auto-imports all providers
+    factory := factory.New()
 
     // Create client
     client, err := factory.CreateClient(llm.ClientConfig{
@@ -111,11 +112,11 @@ factory := factory.New()
 
 // Example tool implementation
 func executeCalculator(arguments string) (interface{}, error) {
-var args struct {
-Operation string `json:"operation"`
-A float64 `json:"a"`
-B float64 `json:"b"`
-}
+    var args struct {
+        Operation string `json:"operation"`
+        A float64 `json:"a"`
+        B float64 `json:"b"`
+    }
 
     if err := json.Unmarshal([]byte(arguments), &args); err != nil {
         return nil, fmt.Errorf("invalid arguments: %w", err)
@@ -138,8 +139,7 @@ B float64 `json:"b"`
     }
 
 }
-
-````
+```
 
 ## Tool Definition Structure
 

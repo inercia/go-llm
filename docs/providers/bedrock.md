@@ -34,6 +34,13 @@ aws configure --profile your-profile
 export AWS_PROFILE=your-profile
 ```
 
+**Bearer Token Authentication:**
+
+```bash
+export AWS_BEDROCK_TOKEN=your-bearer-token
+export AWS_REGION=us-east-1  # Optional, defaults to us-east-1
+```
+
 **IAM Role:** (when running on EC2, ECS, Lambda, etc.)
 
 ### 2. Bedrock Model Access
@@ -61,6 +68,8 @@ client, err := factory.CreateClient(llm.ClientConfig{
         // Optional custom endpoints
         "bedrock_endpoint": "https://bedrock.us-west-2.amazonaws.com",
         "bedrock_runtime_endpoint": "https://bedrock-runtime.us-west-2.amazonaws.com",
+        // Optional bearer token authentication
+        "aws_bedrock_token": "your-bearer-token",
     },
 })
 
@@ -74,62 +83,6 @@ client, err := factory.CreateClient(llm.ClientConfig{
     },
 })
 ```
-
-## Supported Models
-
-### Claude Models (Anthropic)
-
-**Claude 3.5 Sonnet** (Recommended)
-
-- Model ID: `anthropic.claude-3-5-sonnet-20241022-v2:0`
-- Features: Text + Vision, 200k context, Function calling
-- Best for: Complex reasoning, analysis, content creation
-
-**Claude 3 Sonnet**
-
-- Model ID: `anthropic.claude-3-sonnet-20240229-v1:0`
-- Features: Text + Vision, 200k context, Function calling
-- Best for: Balanced performance and cost
-
-**Claude 3 Haiku**
-
-- Model ID: `anthropic.claude-3-haiku-20240307-v1:0`
-- Features: Text + Vision, 200k context, Fast response
-- Best for: Quick tasks, high throughput
-
-**Claude v2.1**
-
-- Model ID: `anthropic.claude-v2:1`
-- Features: Text only, 100k context
-- Best for: Legacy applications
-
-### Titan Models (Amazon)
-
-**Titan Text G1 - Express**
-
-- Model ID: `amazon.titan-text-express-v1`
-- Features: Text only, 8k context
-- Best for: Fast text generation, summarization
-
-**Titan Text G1 - Lite**
-
-- Model ID: `amazon.titan-text-lite-v1`
-- Features: Text only, 4k context
-- Best for: Simple tasks, cost optimization
-
-### Llama Models (Meta)
-
-**Llama 2 70B Chat**
-
-- Model ID: `meta.llama2-70b-chat-v1`
-- Features: Text only, 4k context
-- Best for: Open-source alternative, coding tasks
-
-**Llama 2 13B Chat**
-
-- Model ID: `meta.llama2-13b-chat-v1`
-- Features: Text only, 2k context
-- Best for: Lightweight applications
 
 ## Usage Examples
 

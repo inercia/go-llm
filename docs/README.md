@@ -1,8 +1,8 @@
 # Documentation Index
 
-Welcome to the documentation for the Flexible, multi-provider LLM client library for Go.
+Welcome to the documentation for the LLM client library for Go.
 
-This folder contains guides and references for using the library effectively.
+This folder contains guides and references for using the library.
 
 ## Quick Start
 
@@ -20,7 +20,8 @@ Learn how to use the library's key capabilities:
 
 ## Architecture Overview
 
-Understand the library's design, components, and how they interact in [Architecture Overview](architecture.md).
+Understand the library's design, components, and how they interact
+in [Architecture Overview](architecture.md).
 
 ## Providers
 

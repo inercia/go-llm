@@ -33,6 +33,7 @@ The library checks for credentials in this order (first match wins):
 ```bash
 export OPENAI_API_KEY="your-openai-api-key"
 export OPENAI_MODEL="gpt-4o"                    # optional, defaults to gpt-4o-mini
+export MODEL="custom-model"                     # optional, fallback for custom endpoints
 export OPENAI_TIMEOUT="30"                      # optional, seconds
 export OPENAI_BASE_URL="http://localhost:8080"  # for custom endpoints
 ```
@@ -64,12 +65,18 @@ export OPENROUTER_TIMEOUT="30"                         # optional, seconds
 #### AWS Bedrock
 
 ```bash
+# Credentials (choose one method)
 export AWS_ACCESS_KEY_ID="your-aws-access-key"
 export AWS_SECRET_ACCESS_KEY="your-aws-secret-key"
+export AWS_PROFILE="your-aws-profile"                  # alternative to access key/secret
+export AWS_BEDROCK_TOKEN="your-bearer-token"           # alternative: bearer token authentication
+
+# Configuration
 export AWS_REGION="us-east-1"                          # optional, defaults to us-east-1
 export AWS_BEDROCK_MODEL="anthropic.claude-3-sonnet-20240229-v1:0"  # optional
 export BEDROCK_MODEL="anthropic.claude-3-haiku-20240307-v1:0"       # alternative
 export AWS_BEDROCK_TIMEOUT="60"                        # optional, seconds
+
 # Endpoint configuration (optional)
 export AWS_BEDROCK_ENDPOINT="https://bedrock.custom.amazonaws.com"          # bedrock service endpoint
 export AWS_BEDROCK_RUNTIME_ENDPOINT="https://bedrock-runtime.custom.amazonaws.com"  # runtime endpoint
