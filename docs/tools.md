@@ -156,7 +156,7 @@ type ToolFunction struct {
     Description string                 `json:"description"` // What the function does (required)
     Parameters  map[string]interface{} `json:"parameters"`  // JSON Schema for parameters
 }
-````
+```
 
 ### Parameter Schema Examples
 
