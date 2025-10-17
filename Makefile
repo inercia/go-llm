@@ -6,7 +6,11 @@ GO_FILES=$(shell find . -name '*.go' -type f | grep -v vendor/)
 MD_FILES=$(shell find . -name '*.md' -type f | grep -v vendor/ | grep -v node_modules/)
 PACKAGES=$(shell go list ./...)
 GO_MODULE=$(shell sed -n 's/^module //p' go.mod)
-GO_BIN=$(shell go env GOBIN)
+GOPATH=$(shell go env GOPATH)
+GOBIN=$(shell go env GOBIN)
+ifeq ($(GOBIN),)
+	GOBIN=$(GOPATH)/bin
+endif
 
 # Default target
 all: format lint test build
@@ -73,10 +77,12 @@ lint:
 	@echo "Running linter..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run; \
+	elif command -v $(GOBIN)/golangci-lint >/dev/null 2>&1; then \
+		$(GOBIN)/golangci-lint run; \
 	else \
 		echo "golangci-lint not found. Installing..."; \
 		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0; \
-		golangci-lint run; \
+		$(GOBIN)/golangci-lint run; \
 	fi
 
 # Format code
@@ -84,10 +90,12 @@ format:
 	@echo "Formatting code (goimports)..."
 	@if command -v goimports >/dev/null 2>&1; then \
 		goimports -w -local $(GO_MODULE) $(GO_FILES); \
+	elif command -v $(GOBIN)/goimports >/dev/null 2>&1; then \
+		$(GOBIN)/goimports -w -local $(GO_MODULE) $(GO_FILES); \
 	else \
 		echo "goimports not found. Installing..."; \
 		go install golang.org/x/tools/cmd/goimports@latest; \
-		goimports -w -local $(GO_MODULE) $(GO_FILES); \
+		$(GOBIN)/goimports -w -local $(GO_MODULE) $(GO_FILES); \
 	fi
 	go mod tidy
 	@echo "Formatting markdown files..."
@@ -120,10 +128,12 @@ security:
 	@echo "Running security check..."
 	@if command -v gosec >/dev/null 2>&1; then \
 		gosec ./...; \
+	elif command -v $(GOBIN)/gosec >/dev/null 2>&1; then \
+		$(GOBIN)/gosec ./...; \
 	else \
 		echo "gosec not found. Installing..."; \
 		go install github.com/securego/gosec/v2/cmd/gosec@latest; \
-		gosec ./...; \
+		$(GOBIN)/gosec ./...; \
 	fi
 
 # Check for outdated dependencies
